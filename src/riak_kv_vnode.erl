@@ -137,11 +137,21 @@ list_keys(Preflist, ReqId, Caller, Bucket) ->
                                  riak_kv_vnode_master).
 
 fold(Preflist, Fun, Acc0) ->
-    riak_core_vnode_master:sync_spawn_command(Preflist,
+    FoldResult = riak_core_vnode_master:sync_spawn_command(Preflist,
                                               ?FOLD_REQ{
                                                  foldfun=Fun,
                                                  acc0=Acc0},
-                                              riak_kv_vnode_master).
+                                              riak_kv_vnode_master),
+    case FoldResult of
+        {fold_result, R} ->
+            R;
+        {fold_error, Type, X} ->
+            case Type of
+                throw -> throw(X);
+                error -> erlang:error(X);
+                'EXIT' -> erlang:error({'EXIT', X})  %TODO: should we call kill/1 here?
+            end
+    end.
 
 get_vclocks(Preflist, BKeyList) ->
     riak_core_vnode_master:sync_spawn_command(Preflist,
@@ -467,7 +477,11 @@ buffer_key_result(Caller, ReqId, Idx, Acc) ->
 
 %% @private
 do_fold(Fun, Acc0, _State=#state{mod=Mod, modstate=ModState}) ->
-    Mod:fold(ModState, Fun, Acc0).
+    try
+        {fold_result, Mod:fold(ModState, Fun, Acc0)}
+    catch
+        Type:Reason -> {fold_error, Type, Reason}
+    end.
 
 %% @private
 do_get_vclocks(KeyList,_State=#state{mod=Mod,modstate=ModState}) ->
