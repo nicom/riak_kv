@@ -143,14 +143,14 @@ fold(Preflist, Fun, Acc0) ->
                                                  acc0=Acc0},
                                               riak_kv_vnode_master),
     case FoldResult of
-        {fold_result, R} ->
-            R;
         {fold_error, Type, X} ->
             case Type of
                 throw -> throw(X);
                 error -> erlang:error(X);
                 'EXIT' -> erlang:error({'EXIT', X})  %TODO: should we call kill/1 here?
-            end
+            end;
+        R ->
+            R
     end.
 
 get_vclocks(Preflist, BKeyList) ->
@@ -478,7 +478,7 @@ buffer_key_result(Caller, ReqId, Idx, Acc) ->
 %% @private
 do_fold(Fun, Acc0, _State=#state{mod=Mod, modstate=ModState}) ->
     try
-        {fold_result, Mod:fold(ModState, Fun, Acc0)}
+        Mod:fold(ModState, Fun, Acc0)
     catch
         Type:Reason -> {fold_error, Type, Reason}
     end.
