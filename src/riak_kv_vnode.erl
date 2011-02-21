@@ -253,11 +253,24 @@ handoff_finished(_TargetNode, State) ->
 handle_handoff_data(BinObj, State) ->
     PBObj = riak_core_pb:decode_riakobject_pb(zlib:unzip(BinObj)),
     BKey = {PBObj#riakobject_pb.bucket,PBObj#riakobject_pb.key},
-    case do_diffobj_put(BKey, binary_to_term(PBObj#riakobject_pb.val), State) of
-        ok ->
-            {reply, ok, State};
-        Err ->
-            {reply, {error, Err}, State}
+    Obj =
+        try
+            binary_to_term(PBObj#riakobject_pb.val)
+        catch
+            error:E ->
+                {invalid_obj, {BKey, E}}
+        end,
+    
+    case Obj of
+        {invalid_obj, _} = I ->
+            {reply, {error, I}, State};
+        Obj ->
+            case do_diffobj_put(BKey, Obj, State) of
+                ok ->
+                    {reply, ok, State};
+                Err ->
+                    {reply, {error, Err}, State}
+            end
     end.
 
 encode_handoff_item({B,K}, V) ->
