@@ -336,7 +336,7 @@ perform_put({false, _Obj}, #state{idx=Idx}, #putargs{returnbody=false,reqid=ReqI
     {dw, Idx, ReqId};
 perform_put({true, Obj}, #state{idx=Idx,mod=Mod,modstate=ModState},
             #putargs{returnbody=RB, bkey=BKey, reqid=ReqID}) ->
-    Val = term_to_binary(Obj),
+    Val = term_to_binary(Obj, [compressed]),
     case Mod:put(ModState, BKey, Val) of
         ok ->
             case RB of
@@ -514,7 +514,7 @@ do_diffobj_put(BKey={Bucket,_}, DiffObj,
     case syntactic_put_merge(Mod, ModState, BKey, DiffObj, ReqID) of
         {newobj, NewObj} ->
             AMObj = enforce_allow_mult(NewObj, riak_core_bucket:get_bucket(Bucket)),
-            Val = term_to_binary(AMObj),
+            Val = term_to_binary(AMObj, [compressed]),
             Res = Mod:put(ModState, BKey, Val),
             case Res of
                 ok -> riak_kv_stat:update(vnode_put);
